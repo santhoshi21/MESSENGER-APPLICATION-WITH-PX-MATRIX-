@@ -1,5 +1,6 @@
 
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 
 void main() {
@@ -17,23 +18,41 @@ class MyApp extends StatelessWidget {
 }
 
 class MyHomePage extends StatefulWidget {
+  SharedPreferences? _prefs;
   @override
   _MyHomePageState createState() => _MyHomePageState();
 }
 
 class _MyHomePageState extends State<MyHomePage> {
   String _currentButtonType = 'TXT'; // Default to 'TXT' for Announce button
+  SharedPreferences? _prefs;
 
   TextEditingController _textEditingController = TextEditingController();
   List<String> _suggestions = [
     'Attention, We have visitors for our lab',
     'Kindly Join the meeting soon',
-    'Scroll activity test'
+    'HEARTY WELCOME TO CHANDRABABU GAARU'
   ];
   List<String> _recentTexts = [];
 
+  void initState() {
+    super.initState();
+    _initializeSharedPreferences();
+  }
+
+  Future<void> _initializeSharedPreferences() async {
+    _prefs = await SharedPreferences.getInstance();
+    _loadRecentTexts();
+  }
+
+  void _loadRecentTexts() {
+    setState(() {
+      _recentTexts = _prefs?.getStringList('recentTexts') ?? [];
+    });
+  }
+
   Future<void> _sendTextAndData(String data, String type) async {
-    final Uri uri = Uri.parse('http://10.2.132.119:8100/');
+    final Uri uri = Uri.parse('http://10.2.130.251:8100/');//http://10.2.132.119:8100/ https://jsonplaceholder.typicode.com/posts
 
     try {
       final response = await http.post(
@@ -53,19 +72,41 @@ class _MyHomePageState extends State<MyHomePage> {
       print('Error sending data: $e');
     }
   }
-
-
-
-
   void _sendText(String type) {
     final enteredText = _textEditingController.text;
     if (enteredText.isNotEmpty) {
+      // Remove duplicates if they exist
+      _recentTexts.remove(enteredText);
+
+      // Add the entered text at the beginning
       _recentTexts.insert(0, enteredText);
+
+      // Limit the recent texts to a maximum of 5
+      if (_recentTexts.length > 5) {
+        _recentTexts.removeLast();
+      }
+
+      // Save the recent texts to Shared Preferences if _prefs is not null
+      if (_prefs != null) {
+        _prefs?.setStringList('recentTexts', _recentTexts);
+      }
+
       _sendTextAndData(enteredText, _currentButtonType); // Sending the enteredText to the API
     }
     print("Entered text: $enteredText");
     _textEditingController.clear();
   }
+
+
+  // void _sendText(String type) {         // previous working function it is
+  //   final enteredText = _textEditingController.text;
+  //   if (enteredText.isNotEmpty) {
+  //     _recentTexts.insert(0, enteredText);
+  //     _sendTextAndData(enteredText, _currentButtonType); // Sending the enteredText to the API
+  //   }
+  //   print("Entered text: $enteredText");
+  //   _textEditingController.clear();
+  // }
 
   // void _sendText(String type) {
   //   final enteredText = _textEditingController.text;
@@ -244,7 +285,6 @@ class _MyHomePageState extends State<MyHomePage> {
     );
   }
 }
-
 class RecentTextList extends StatelessWidget {
   final List<String> recentTexts;
   final Function(String) onSelect;
@@ -272,6 +312,11 @@ class RecentTextList extends StatelessWidget {
               title: Text(recentText),
               onTap: () {
                 onSelect(recentText);
+
+                // You can optionally update the recent texts immediately
+                // when a text is selected from the bottom sheet
+                // by calling _loadRecentTexts() here.
+
                 Navigator.pop(context);
               },
             );
@@ -281,3 +326,40 @@ class RecentTextList extends StatelessWidget {
     );
   }
 }
+
+// class RecentTextList extends StatelessWidget {
+//   final List<String> recentTexts;
+//   final Function(String) onSelect;
+//
+//   RecentTextList({required this.recentTexts, required this.onSelect});
+//
+//   @override
+//   Widget build(BuildContext context) {
+//     return Column(
+//       mainAxisSize: MainAxisSize.min,
+//       children: [
+//         ListTile(
+//           title: Text(
+//             'Recent Texts',
+//             style: TextStyle(fontWeight: FontWeight.bold),
+//           ),
+//         ),
+//         Divider(),
+//         ListView.builder(
+//           shrinkWrap: true,
+//           itemCount: recentTexts.length,
+//           itemBuilder: (context, index) {
+//             final recentText = recentTexts[index];
+//             return ListTile(
+//               title: Text(recentText),
+//               onTap: () {
+//                 onSelect(recentText);
+//                 Navigator.pop(context);
+//               },
+//             );
+//           },
+//         ),
+//       ],
+//     );
+//   }
+// }

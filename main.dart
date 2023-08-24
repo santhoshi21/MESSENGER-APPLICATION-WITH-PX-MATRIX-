@@ -31,7 +31,8 @@ class _MyHomePageState extends State<MyHomePage> {
   List<String> _suggestions = [
     'Attention, We have visitors for our lab',
     'Kindly Join the meeting soon',
-    'HEARTY WELCOME TO CHANDRABABU GAARU'
+    'I need everyone in lab right now',
+    'SCRC Welcomes Sri Chandrababu Naidu Gaaru'
   ];
   List<String> _recentTexts = [];
 
@@ -52,7 +53,7 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   Future<void> _sendTextAndData(String data, String type) async {
-    final Uri uri = Uri.parse('http://10.2.130.251:8100/');//http://10.2.132.119:8100/ https://jsonplaceholder.typicode.com/posts
+    final Uri uri = Uri.parse('http://10.2.130.251:8100/');//http://10.2.132.119:8100/// https://jsonplaceholder.typicode.com/posts
 
     try {
       final response = await http.post(
@@ -158,7 +159,7 @@ class _MyHomePageState extends State<MyHomePage> {
       _suggestions = [
         'Attention, We have visitors for our lab',
         'Kindly Join the meeting soon',
-        'Scroll activity test'
+        'I need everyone in my room right now'
       ];
 
     });
@@ -166,7 +167,7 @@ class _MyHomePageState extends State<MyHomePage> {
 
   void _setCommandSuggestions() {
     setState(() {
-      _suggestions = ['Execute command 1', 'Execute command 2', 'Execute command 3'];
+      _suggestions = ['AE_AQ', 'AE_EM', 'AE_SL','AE_SR', 'AE_WE', 'AE_WM','AE_WN'];
       _currentButtonType = 'CMD';
     });
   }

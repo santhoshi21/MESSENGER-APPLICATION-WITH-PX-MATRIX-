@@ -1,4 +1,4 @@
-name: scrc_announcement_application
+name: Scrc_Announcements
 description: Basic Application 1.0
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
@@ -29,11 +29,14 @@ environment:
 # versions available, run `flutter pub outdated`.
 dependencies:
   flutter:
-
-
     sdk: flutter
   shared_preferences: ^2.0.12
   http: ^0.13.3
+
+flutter_icons:
+  android: "true"
+  image_path: "assets/loading_image.png"
+
 
 
 
@@ -71,8 +74,9 @@ flutter:
   uses-material-design: true
 
   # To add assets to your application, add an assets section, like this:
-  # assets:
-  #   - images/a_dot_burr.jpeg
+  assets:
+     - assets/loading_image.png
+
   #   - images/a_dot_ham.jpeg
 
   # An image asset can refer to one or more resolution-specific "variants", see

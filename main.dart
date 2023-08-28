@@ -45,16 +45,16 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-  String _currentButtonType = 'TXT';
   SharedPreferences? _prefs;
+  String _currentButtonType = 'TXT'; // Initialize with 'TXT'
 
   TextEditingController _textEditingController = TextEditingController();
   List<String> _suggestions = [
     'Attention, We have visitors for our lab',
     'Kindly Join the meeting soon',
-    'I need everyone in lab right now',
+    'I need everyone in my room right now',
     'Report to LAB1 within the next 5 minutes',
-    "Meet in LAB1 within the next 5 minutes"
+    'Meet in LAB1 within the next 5 minutes'
   ];
   List<String> _recentTexts = [];
 
@@ -74,14 +74,14 @@ class _MyHomePageState extends State<MyHomePage> {
     });
   }
 
-  Future<void> _sendTextAndData(String data, String type) async {
-    final Uri uri = Uri.parse('http://10.2.130.251:8100/');
+  Future<void> _sendTextAndData(String data) async {
+    final Uri uri = Uri.parse('http://192.168.164.8:8100/');//https://jsonplaceholder.typicode.com/posts
 
     try {
       final response = await http.post(
         uri,
         headers: {'Content-Type': 'application/json'},
-        body: '{"data": "$data", "type": "$type"}',
+        body: '{"data": "$data", "type": "$_currentButtonType"}',
       );
 
       if (response.statusCode == 200) {
@@ -95,7 +95,7 @@ class _MyHomePageState extends State<MyHomePage> {
     }
   }
 
-  void _sendText(String type) {
+  void _sendText() {
     final enteredText = _textEditingController.text;
     if (enteredText.isNotEmpty) {
       _recentTexts.remove(enteredText);
@@ -109,7 +109,7 @@ class _MyHomePageState extends State<MyHomePage> {
         _prefs?.setStringList('recentTexts', _recentTexts);
       }
 
-      _sendTextAndData(enteredText, _currentButtonType);
+      _sendTextAndData(enteredText);
     }
     print("Entered text: $enteredText");
     _textEditingController.clear();
@@ -136,13 +136,14 @@ class _MyHomePageState extends State<MyHomePage> {
         'Report to LAB1 within the next 5 minutes',
         'Meet in LAB1 within the next 5 minutes'
       ];
+      _currentButtonType = 'TXT'; // Set to 'TXT' for Announce
     });
   }
 
   void _setCommandSuggestions() {
     setState(() {
-      _suggestions = ['AE_AQ', 'AE_EM', 'AE_SL','AE_SR', 'AE_WE', 'AE_WM','AE_WN'];
-      _currentButtonType = 'CMD';
+      _suggestions = ['aq', 'srEM', 'wd', 'wf', 'wn'];
+      _currentButtonType = 'CMD'; // Set to 'CMD' for Command
     });
   }
 
@@ -191,7 +192,7 @@ class _MyHomePageState extends State<MyHomePage> {
                   ),
                 ),
                 IconButton(
-                  onPressed: () => _sendText("data"),
+                  onPressed: () => _sendText(),
                   icon: Icon(Icons.send),
                 ),
                 IconButton(

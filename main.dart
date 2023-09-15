@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
+import 'package:fluttertoast/fluttertoast.dart';
 
 void main() {
   runApp(MyApp());
@@ -18,7 +19,8 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'SCRC Announcements',
+      debugShowCheckedModeBanner: false,
+      title: 'SCRC Messenger',
       home: FutureBuilder(
         future: _initialization,
         builder: (context, snapshot) {
@@ -47,8 +49,13 @@ class MyHomePage extends StatefulWidget {
 class _MyHomePageState extends State<MyHomePage> {
   SharedPreferences? _prefs;
   String _currentButtonType = 'TXT'; // Initialize with 'TXT'
+  ScrollController _scrollController = ScrollController(); // Declare _scrollController
 
   TextEditingController _textEditingController = TextEditingController();
+  TextEditingController _textEditingControllerLine1 = TextEditingController();
+  TextEditingController _textEditingControllerLine2 = TextEditingController();
+  TextEditingController _textEditingControllerLine3 = TextEditingController();
+
   List<String> _suggestions = [
     'Attention, We have visitors for our lab',
     'Kindly Join the meeting soon',
@@ -56,16 +63,43 @@ class _MyHomePageState extends State<MyHomePage> {
     'Report to LAB1 within the next 5 minutes',
     'Meet in LAB1 within the next 5 minutes'
   ];
+
   List<String> _recentTexts = [];
 
   void initState() {
     super.initState();
     _initializeSharedPreferences();
+    // Add listeners to the controllers to monitor text changes
+    _textEditingControllerLine1.addListener(() {
+      _checkAndShowLimitExceededToast(
+          _textEditingControllerLine1.text, 'Line 1');
+    });
+
+    _textEditingControllerLine2.addListener(() {
+      _checkAndShowLimitExceededToast(
+          _textEditingControllerLine2.text, 'Line 2');
+    });
+
+    _textEditingControllerLine3.addListener(() {
+      _checkAndShowLimitExceededToast(
+          _textEditingControllerLine3.text, 'Line 3');
+    });
+  }
+
+  void _scrollToTop() {
+    _scrollController.animateTo(
+      0,
+      duration: Duration(milliseconds: 500),
+      curve: Curves.easeInOut,
+    );
   }
 
   Future<void> _initializeSharedPreferences() async {
     _prefs = await SharedPreferences.getInstance();
     _loadRecentTexts();
+    _scrollController = ScrollController(); // Initialize _scrollController
+    _scrollController = ScrollController(); // Initialize _scrollController
+    _currentButtonType = 'TXT'; // Set initial type to 'TXT'
   }
 
   void _loadRecentTexts() {
@@ -74,14 +108,14 @@ class _MyHomePageState extends State<MyHomePage> {
     });
   }
 
-  Future<void> _sendTextAndData(String data) async {
-    final Uri uri = Uri.parse('http://192.168.164.8:8100/');//https://jsonplaceholder.typicode.com/posts
+  Future<void> _sendTextAndData(String data, String type) async {
+    final Uri uri = Uri.parse('http://jsonplaceholder.typicode.com/posts'); // API endpoint
 
     try {
       final response = await http.post(
         uri,
         headers: {'Content-Type': 'application/json'},
-        body: '{"data": "$data", "type": "$_currentButtonType"}',
+        body: '{"data": "$data", "type": "$type"}',
       );
 
       if (response.statusCode == 200) {
@@ -95,21 +129,26 @@ class _MyHomePageState extends State<MyHomePage> {
     }
   }
 
-  void _sendText() {
+  void _sendText(String type) {
     final enteredText = _textEditingController.text;
     if (enteredText.isNotEmpty) {
+      // Remove duplicates if they exist
       _recentTexts.remove(enteredText);
+
+      // Add the entered text at the beginning
       _recentTexts.insert(0, enteredText);
 
+      // Limit the recent texts to a maximum of 5
       if (_recentTexts.length > 5) {
         _recentTexts.removeLast();
       }
 
+      // Save the recent texts to Shared Preferences if _prefs is not null
       if (_prefs != null) {
         _prefs?.setStringList('recentTexts', _recentTexts);
       }
 
-      _sendTextAndData(enteredText);
+      _sendTextAndData(enteredText, _currentButtonType); // Sending the enteredText to the API
     }
     print("Entered text: $enteredText");
     _textEditingController.clear();
@@ -127,6 +166,180 @@ class _MyHomePageState extends State<MyHomePage> {
     });
   }
 
+  // void _sendTextAndLines(String type) {
+  //   final line1 = _textEditingControllerLine1.text;
+  //   final line2 = _textEditingControllerLine2.text;
+  //   final line3 = _textEditingControllerLine3.text;
+  //
+  //   // Handle the main input text box (enteredText) separately
+  //   if (line1.isNotEmpty) {
+  //     _sendTextAndData(line1, type);
+  //     _textEditingControllerLine1.clear();
+  //   }
+  //
+  //   if (line2.isNotEmpty) {
+  //     _sendTextAndData(line2, type);
+  //     _textEditingControllerLine2.clear();
+  //   }
+  //
+  //   if (line3.isNotEmpty) {
+  //     _sendTextAndData(line3, type);
+  //     _textEditingControllerLine3.clear();
+  //   }
+  //
+  //   _scrollToTop();
+  // }
+  // void _sendTextAndLines() {
+  //   final enteredText = _textEditingController.text;
+  //   final line1 = _textEditingControllerLine1.text;
+  //   final line2 = _textEditingControllerLine2.text;
+  //   final line3 = _textEditingControllerLine3.text;
+  //
+  //   if (line1.isNotEmpty) {
+  //     _sendTextAndData(line1, 'TXT'); // Send Line 1 as 'TXT'
+  //     _textEditingControllerLine1.clear();
+  //   }
+  //
+  //   if (line2.isNotEmpty) {
+  //     _sendTextAndData(line2, 'TXT'); // Send Line 2 as 'TXT'
+  //     _textEditingControllerLine2.clear();
+  //   }
+  //
+  //   if (line3.isNotEmpty) {
+  //     _sendTextAndData(line3, 'TXT'); // Send Line 3 as 'TXT'
+  //     _textEditingControllerLine3.clear();
+  //   }
+  //
+  //   if (enteredText.isNotEmpty) {
+  //     _recentTexts.remove(enteredText);
+  //     _recentTexts.insert(0, enteredText);
+  //
+  //     if (_recentTexts.length > 5) {
+  //       _recentTexts.removeLast();
+  //     }
+  //
+  //     if (_prefs != null) {
+  //       _prefs?.setStringList('recentTexts', _recentTexts);
+  //     }
+  //
+  //     _sendTextAndData(enteredText, 'TXT'); // Send entered text as 'TXT'
+  //     _textEditingController.clear();
+  //   }
+  // }
+  // void _sendTextAndLines() {
+  //   final enteredText = _textEditingController.text;
+  //   final line1 = _textEditingControllerLine1.text;
+  //   final line2 = _textEditingControllerLine2.text;
+  //   final line3 = _textEditingControllerLine3.text;
+  //
+  //   if (line1.isNotEmpty) {
+  //     _sendTextAndData(line1, 'TXT'); // Send Line 1 as 'TXT'
+  //     _textEditingControllerLine1.clear();
+  //   }
+  //
+  //   if (line2.isNotEmpty) {
+  //     _sendTextAndData(line2, 'TXT'); // Send Line 2 as 'TXT'
+  //     _textEditingControllerLine2.clear();
+  //   }
+  //
+  //   if (line3.isNotEmpty) {
+  //     _sendTextAndData(line3, 'TXT'); // Send Line 3 as 'TXT'
+  //     _textEditingControllerLine3.clear();
+  //   }
+  //
+  //   if (enteredText.isNotEmpty) {
+  //     _recentTexts.remove(enteredText);
+  //     _recentTexts.insert(0, enteredText);
+  //
+  //     if (_recentTexts.length > 5) {
+  //       _recentTexts.removeLast();
+  //     }
+  //
+  //     if (_prefs != null) {
+  //       _prefs?.setStringList('recentTexts', _recentTexts);
+  //     }
+  //
+  //     // Send entered text as 'TXT' or 'CMD' based on the selected button
+  //     _sendTextAndData(enteredText, _currentButtonType);
+  //     _textEditingController.clear();
+  //   }
+  // }
+  void _sendTextAndLines() {
+    final enteredText = _textEditingController.text;
+    final line1 = _textEditingControllerLine1.text;
+    final line2 = _textEditingControllerLine2.text;
+    final line3 = _textEditingControllerLine3.text;
+
+    if (_currentButtonType == 'CMD') {
+      // If the current button type is 'CMD', send enteredText as 'CMD'
+      if (enteredText.isNotEmpty) {
+        _recentTexts.remove(enteredText);
+        _recentTexts.insert(0, enteredText);
+
+        if (_recentTexts.length > 5) {
+          _recentTexts.removeLast();
+        }
+
+        if (_prefs != null) {
+          _prefs?.setStringList('recentTexts', _recentTexts);
+        }
+
+        _sendTextAndData(enteredText, 'CMD'); // Send entered text as 'CMD'
+        _textEditingController.clear();
+      }
+    } else {
+      // If the current button type is 'TXT', send enteredText as 'TXT'
+      if (enteredText.isNotEmpty) {
+        _recentTexts.remove(enteredText);
+        _recentTexts.insert(0, enteredText);
+
+        if (_recentTexts.length > 5) {
+          _recentTexts.removeLast();
+        }
+
+        if (_prefs != null) {
+          _prefs?.setStringList('recentTexts', _recentTexts);
+        }
+
+        _sendTextAndData(enteredText, 'TXT'); // Send entered text as 'TXT'
+        _textEditingController.clear();
+      }
+    }
+
+    // Always send Line 1, Line 2, and Line 3 as 'TXT' if they are not empty
+    if (line1.isNotEmpty) {
+      _sendTextAndData(line1, 'TXT'); // Send Line 1 as 'TXT'
+      _textEditingControllerLine1.clear();
+    }
+
+    if (line2.isNotEmpty) {
+      _sendTextAndData(line2, 'TXT'); // Send Line 2 as 'TXT'
+      _textEditingControllerLine2.clear();
+    }
+
+    if (line3.isNotEmpty) {
+      _sendTextAndData(line3, 'TXT'); // Send Line 3 as 'TXT'
+      _textEditingControllerLine3.clear();
+    }
+
+    _scrollToTop();
+  }
+
+
+
+  void _checkAndShowLimitExceededToast(String text, String field) {
+    if (text.length > 10) {
+      Fluttertoast.showToast(
+        msg: 'LIMIT EXCEEDED: $field',
+        toastLength: Toast.LENGTH_SHORT,
+        gravity: ToastGravity.BOTTOM,
+        backgroundColor: Colors.red,
+        textColor: Colors.white,
+        fontSize: 16.0,
+      );
+    }
+  }
+
   void _setAnnounceSuggestions() {
     setState(() {
       _suggestions = [
@@ -138,6 +351,7 @@ class _MyHomePageState extends State<MyHomePage> {
       ];
       _currentButtonType = 'TXT'; // Set to 'TXT' for Announce
     });
+    _scrollToTop();
   }
 
   void _setCommandSuggestions() {
@@ -145,6 +359,35 @@ class _MyHomePageState extends State<MyHomePage> {
       _suggestions = ['aq', 'srEM', 'wd', 'wf', 'wn'];
       _currentButtonType = 'CMD'; // Set to 'CMD' for Command
     });
+    _scrollToTop();
+  }
+
+  void _showRecentMessagesDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text('Recent Messages'),
+          content: Container(
+            width: 300,
+            height: 300,
+            child: ListView.builder(
+              itemCount: _recentTexts.length,
+              itemBuilder: (context, index) {
+                final recentText = _recentTexts[index];
+                return ListTile(
+                  title: Text(recentText),
+                  onTap: () {
+                    Navigator.of(context).pop();
+                    _insertRecentText(recentText);
+                  },
+                );
+              },
+            ),
+          ),
+        );
+      },
+    );
   }
 
   @override
@@ -152,134 +395,236 @@ class _MyHomePageState extends State<MyHomePage> {
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.primary,
-        title: Text('SCRC Announcements'),
+        title: Text('SCRC Messenger'),
       ),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            Row(
-              mainAxisAlignment: MainAxisAlignment.start,
-              children: [
-                SizedBox(width: 20),
-                ElevatedButton(
-                  onPressed: () => _setAnnounceSuggestions(),
-                  child: Text('Announce'),
-                ),
-                SizedBox(width: 16),
-                ElevatedButton(
-                  onPressed: () => _setCommandSuggestions(),
-                  child: Text('Command'),
-                ),
-              ],
-            ),
-            SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _textEditingController,
-                    onChanged: (value) {
-                      setState(() {
-                        // You can add any custom logic here if needed
-                      });
-                    },
-                    decoration: InputDecoration(
-                      hintText: 'Type here...',
-                      labelText: 'Input Text',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                ),
-                IconButton(
-                  onPressed: () => _sendText(),
-                  icon: Icon(Icons.send),
-                ),
-                IconButton(
-                  onPressed: () {
-                    showModalBottomSheet(
-                      context: context,
-                      builder: (BuildContext context) {
-                        return RecentTextList(
-                            recentTexts: _recentTexts, onSelect: _insertRecentText);
+      body: SafeArea(
+        child: SingleChildScrollView(
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: <Widget>[
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    IconButton(
+                      onPressed: () {
+                        _icon1Action();
                       },
-                    );
-                  },
-                  icon: Icon(Icons.add),
+                      icon: Image.asset('assets/icon1.png'),
+                    ),
+                    IconButton(
+                      onPressed: () {
+                        _icon2Action();
+                      },
+                      icon: Image.asset('assets/icon2.png'),
+                    ),
+                    IconButton(
+                      onPressed: () {
+                        _icon3Action();
+                      },
+                      icon: Image.asset('assets/icon3.png'),
+                    ),
+                    IconButton(
+                      onPressed: () {
+                        _icon4Action();
+                      },
+                      icon: Image.asset('assets/icon4.png'),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-            // Wrap the ListView.builder with a Container and set the height
-            Container(
-              height: 300, // Change this value to adjust the height of the ListView
-              child: ListView.builder(
-                itemCount: _suggestions.length,
-                itemBuilder: (context, index) {
-                  final suggestion = _suggestions[index];
-                  return GestureDetector(
-                    onTap: () {
-                      _selectSuggestion(suggestion);
-                    },
-                    child: Container(
-                      margin: EdgeInsets.symmetric(vertical: 8),
-                      padding: EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: Colors.lightBlueAccent),
-                      ),
-                      child: Text(
-                        suggestion,
-                        style: TextStyle(
-                          color: Colors.lightBlueAccent,
-                          decoration: TextDecoration.underline,
+                SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    ElevatedButton(
+                      onPressed: () => _setAnnounceSuggestions(),
+                      child: Text('Announce'),
+                    ),
+                    SizedBox(width: 16),
+                    ElevatedButton(
+                      onPressed: () => _setCommandSuggestions(),
+                      child: Text('Data'),
+                    ),
+                  ],
+                ),
+                SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _textEditingController,
+                        onChanged: (value) {
+                          setState(() {
+                            // custom logic
+                          });
+                        },
+                        decoration: InputDecoration(
+                          hintText: 'Type here...',
+                          labelText: 'Announcement',
+                          border: OutlineInputBorder(),
                         ),
                       ),
                     ),
-                  );
-                },
-              ),
+                    IconButton(
+                      onPressed: () => _sendTextAndLines(), // Call the updated function
+                      icon: Icon(Icons.send),
+                    ),
+                    // IconButton(
+                    //   onPressed: () => _sendText(_currentButtonType),
+                    //   icon: Icon(Icons.send),
+                    // ),
+                    IconButton(
+                      onPressed: () {
+                        _showRecentMessagesDialog();
+                      },
+                      icon: Icon(Icons.add), // Add a "+" icon here
+                    ),
+                  ],
+                ),
+                SizedBox(height: 10), // Add some spacing
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _textEditingControllerLine1,
+                        onChanged: (value) {
+                          setState(() {
+                            // custom logic
+                          });
+                        },
+                        decoration: InputDecoration(
+                          hintText: 'Line 1...',
+                          labelText: 'Line 1',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                SizedBox(height: 10), // Add some spacing
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _textEditingControllerLine2,
+                        onChanged: (value) {
+                          setState(() {
+                            // custom logic
+                          });
+                        },
+                        decoration: InputDecoration(
+                          hintText: 'Line 2...',
+                          labelText: 'Line 2',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                SizedBox(height: 10), // Add some spacing
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _textEditingControllerLine3,
+                        onChanged: (value) {
+                          setState(() {
+                            // custom logic
+                          });
+                        },
+                        decoration: InputDecoration(
+                          hintText: 'Line 3...',
+                          labelText: 'Line 3',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                SizedBox(height: 20),
+                Container(
+                  height: 150,
+                  child: ListView.builder(
+                    controller: _scrollController, // Attach the _scrollController here
+                    itemCount: _suggestions.length,
+                    itemBuilder: (context, index) {
+                      final suggestion = _suggestions[index];
+                      return GestureDetector(
+                        onTap: () {
+                          _selectSuggestion(suggestion);
+                        },
+                        child: Container(
+                          margin: EdgeInsets.symmetric(vertical: 8),
+                          padding: EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: Colors.lightBlueAccent),
+                          ),
+                          child: Text(
+                            suggestion,
+                            style: TextStyle(
+                              color: Colors.lightBlueAccent,
+                              decoration: TextDecoration.underline,
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
             ),
-            SizedBox(height: 20),
-          ],
+          ),
         ),
       ),
     );
   }
-}
 
-class RecentTextList extends StatelessWidget {
-  final List<String> recentTexts;
-  final Function(String) onSelect;
-
-  RecentTextList({required this.recentTexts, required this.onSelect});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        ListTile(
-          title: Text(
-            'Recent Texts',
-            style: TextStyle(fontWeight: FontWeight.bold),
-          ),
-        ),
-        Divider(),
-        ListView.builder(
-          shrinkWrap: true,
-          itemCount: recentTexts.length,
-          itemBuilder: (context, index) {
-            final recentText = recentTexts[index];
-            return ListTile(
-              title: Text(recentText),
-              onTap: () {
-                onSelect(recentText);
-                Navigator.pop(context);
-              },
-            );
-          },
-        ),
-      ],
+  void _icon1Action() {
+    Fluttertoast.showToast(
+      msg: 'SCRC LAB 1',
+      toastLength: Toast.LENGTH_SHORT,
+      gravity: ToastGravity.BOTTOM,
+      backgroundColor: Colors.black,
+      textColor: Colors.white,
+      fontSize: 16.0,
     );
+    print('Icon 1 clicked');
+  }
+
+  void _icon2Action() {
+    Fluttertoast.showToast(
+      msg: 'Hardware Lab',
+      toastLength: Toast.LENGTH_SHORT,
+      gravity: ToastGravity.BOTTOM,
+      backgroundColor: Colors.black,
+      textColor: Colors.white,
+      fontSize: 16.0,
+    );
+    print('Icon 2 clicked');
+  }
+
+  void _icon3Action() {
+    Fluttertoast.showToast(
+      msg: 'Software Lab ',
+      toastLength: Toast.LENGTH_SHORT,
+      gravity: ToastGravity.BOTTOM,
+      backgroundColor: Colors.black,
+      textColor: Colors.white,
+      fontSize: 16.0,
+    );
+    print('Icon 3 clicked');
+  }
+
+  void _icon4Action() {
+    Fluttertoast.showToast(
+      msg: 'All Labs ',
+      toastLength: Toast.LENGTH_SHORT,
+      gravity: ToastGravity.BOTTOM,
+      backgroundColor: Colors.black,
+      textColor: Colors.white,
+      fontSize: 16.0,
+    );
+    print('Icon 4 clicked');
   }
 }

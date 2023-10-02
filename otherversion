@@ -1,0 +1,598 @@
+import 'package:flutter/material.dart';
+import 'package:fluttertoast/fluttertoast.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+
+void main() {
+  runApp(MyApp());
+}
+
+class MyApp extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      theme: ThemeData.dark(),
+      home: MyMessengerApp(),
+    );
+  }
+}
+
+class MyMessengerApp extends StatefulWidget {
+  @override
+  _MyMessengerAppState createState() => _MyMessengerAppState();
+}
+
+class _MyMessengerAppState extends State<MyMessengerApp> {
+  PageController _pageController = PageController();
+  int _currentPageIndex = 0;
+  bool _showAnnounceSamples = false;
+  bool _showDataSamples = false;
+  Color _announceButtonColor = Colors.cyan;
+  Color _dataButtonColor = Colors.cyan;
+  final TextEditingController textEditingController = TextEditingController();
+  final TextEditingController textEditingControllerLine1 =
+  TextEditingController();
+  final TextEditingController textEditingControllerLine2 =
+  TextEditingController();
+  final TextEditingController textEditingControllerLine3 =
+  TextEditingController();
+  String _dataType = 'TXT';
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Row(
+          children: <Widget>[
+            Icon(
+              Icons.message,
+              size: 28,
+              color: Colors.blueAccent,
+            ),
+            SizedBox(width: 8),
+            Text(
+              'SCRC MESSENGER',
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 1.2,
+              ),
+            ),
+          ],
+        ),
+        centerTitle: false,
+        backgroundColor: Colors.black,
+        elevation: 0,
+      ),
+      body: Container(
+        color: Colors.black,
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: <Widget>[
+              Row(
+                children: <Widget>[
+                  SizedBox(width: 20),
+                  Container(
+                    width: 150,
+                    child: ElevatedButton(
+                      onPressed: () {
+                        _handleAnnounceButtonClick();
+                      },
+                      style: ButtonStyle(
+                        backgroundColor:
+                        MaterialStateProperty.all<Color>(_announceButtonColor),
+                        padding: MaterialStateProperty.all<EdgeInsets>(
+                          EdgeInsets.all(16),
+                        ),
+                        shape: MaterialStateProperty.all<RoundedRectangleBorder>(
+                          RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12.0),
+                          ),
+                        ),
+                      ),
+                      child: Column(
+                        children: <Widget>[
+                          Text(
+                            'Announce',
+                            style: TextStyle(fontSize: 20),
+                          ),
+                          if (_showAnnounceSamples) ...[
+                            Text(
+                              'Hide Samples',
+                              style: TextStyle(fontSize: 14),
+                            ),
+                          ] else ...[
+                            Text(
+                              'Select Location',
+                              style: TextStyle(fontSize: 14),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
+                  SizedBox(width: 30),
+                  Container(
+                    width: 150,
+                    child: ElevatedButton(
+                      onPressed: () {
+                        _handleDataButtonClick();
+                      },
+                      style: ButtonStyle(
+                        backgroundColor:
+                        MaterialStateProperty.all<Color>(_dataButtonColor),
+                        padding: MaterialStateProperty.all<EdgeInsets>(
+                          EdgeInsets.all(16),
+                        ),
+                        shape: MaterialStateProperty.all<RoundedRectangleBorder>(
+                          RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12.0),
+                          ),
+                        ),
+                      ),
+                      child: Column(
+                        children: <Widget>[
+                          Text(
+                            'Data',
+                            style: TextStyle(fontSize: 20),
+                          ),
+                          if (_showDataSamples) ...[
+                            Text(
+                              'Hide Samples',
+                              style: TextStyle(fontSize: 14),
+                            ),
+                          ] else ...[
+                            Text(
+                              'Select Location',
+                              style: TextStyle(fontSize: 14),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              SizedBox(height: 20),
+              if (_showAnnounceSamples || _showDataSamples)
+                LocationsWidget(
+                  visible: _showAnnounceSamples || _showDataSamples,
+                  dataType: _dataType,
+                  onSampleSelected: (sampleName) {
+                    _handleSampleSelection(sampleName);
+                  },
+                  pageController: _pageController,
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _handleAnnounceButtonClick() {
+    setState(() {
+      _dataType = 'TXT'; // Set the data type to 'TXT' for Announce button
+      _showDataSamples = false;
+      _showAnnounceSamples = !_showAnnounceSamples;
+      _announceButtonColor = _showAnnounceSamples ? Colors.blue : Colors.cyan;
+      _dataButtonColor = Colors.cyan;
+    });
+  }
+
+  void _handleDataButtonClick() {
+    setState(() {
+      _dataType = 'CMD'; // Set the data type to 'CMD' for Data button
+      _showDataSamples = !_showDataSamples; // Toggle showing data samples
+    });
+  }
+
+  void _handleSampleSelection(String sampleName) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        final TextEditingController textEditingControllerLine = TextEditingController();
+
+        if (_dataType == 'TXT') {
+          return StatefulBuilder(
+            builder: (context, setState) {
+              return PageView.builder(
+                controller: _pageController,
+                itemCount: 2, // Number of pages (Line 1, Line 2, Line 3)
+                onPageChanged: (index) {
+                  setState(() {
+                    _currentPageIndex = index;
+                  });
+                },
+                itemBuilder: (context, index) {
+                  if (index == 0) {
+                    // First page with Line 1, Line 2, Line 3
+                    return AlertDialog(
+                      title: Text('Lines to $sampleName'),
+                      content: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          TextField(
+                            controller: textEditingControllerLine1,
+                            onChanged: (value) {},
+                            decoration: InputDecoration(
+                              hintText: 'Type Line 1 here...',
+                              labelText: 'Line 1',
+                              border: OutlineInputBorder(),
+                            ),
+                          ),
+                          SizedBox(height: 10),
+                          TextField(
+                            controller: textEditingControllerLine2,
+                            onChanged: (value) {},
+                            decoration: InputDecoration(
+                              hintText: 'Type Line 2 here...',
+                              labelText: 'Line 2',
+                              border: OutlineInputBorder(),
+                            ),
+                          ),
+                          SizedBox(height: 10),
+                          TextField(
+                            controller: textEditingControllerLine3,
+                            onChanged: (value) {},
+                            decoration: InputDecoration(
+                              hintText: 'Type Line 3 here...',
+                              labelText: 'Line 3',
+                              border: OutlineInputBorder(),
+                            ),
+                          ),
+                          SizedBox(height: 10),
+                          ElevatedButton(
+                            onPressed: () {
+                              final line1 = textEditingControllerLine1.text.trim();
+                              final line2 = textEditingControllerLine2.text.trim();
+                              final line3 = textEditingControllerLine3.text.trim();
+
+                              if (line1.isNotEmpty) {
+                                _sendLine(line1, _dataType); // Send based on _dataType
+                              }
+
+                              if (line2.isNotEmpty) {
+                                _sendLine(line2, _dataType); // Send based on _dataType
+                              }
+
+                              if (line3.isNotEmpty) {
+                                _sendLine(line3, _dataType); // Send based on _dataType
+                              }
+
+                              textEditingControllerLine1.clear();
+                              textEditingControllerLine2.clear();
+                              textEditingControllerLine3.clear();
+                            },
+                            child: Text('Send'),
+                          ),
+                          SizedBox(height: 10),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              IconButton(
+                                icon: Icon(Icons.arrow_back_ios_sharp),
+                                onPressed: () {
+                                  Navigator.of(context).pop();
+                                },
+                              ),
+                              Text(
+                                '1 / 2',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              IconButton(
+                                icon: Icon(Icons.arrow_forward_ios_sharp),
+                                onPressed: () {
+                                  _pageController.nextPage(
+                                    duration: Duration(milliseconds: 300),
+                                    curve: Curves.ease,
+                                  );
+                                },
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    );
+                  } else {
+                    // Second page with one input box and send button
+                    return AlertDialog(
+                      title: Text('Line to $sampleName'),
+                      content: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          TextField(
+                            controller: textEditingControllerLine,
+                            onChanged: (value) {},
+                            decoration: InputDecoration(
+                              hintText: 'Type Line here...',
+                              labelText: 'Line',
+                              border: OutlineInputBorder(),
+                            ),
+                          ),
+                          SizedBox(height: 10),
+                          ElevatedButton(
+                            onPressed: () {
+                              final line = textEditingControllerLine.text.trim();
+                              if (line.isNotEmpty) {
+                                _sendLine(line, _dataType); // Send based on _dataType
+                              }
+                              textEditingControllerLine.clear();
+                            },
+                            child: Text('Send'),
+                          ),
+                          SizedBox(height: 10),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              IconButton(
+                                icon: Icon(Icons.arrow_back_ios_sharp),
+                                onPressed: () {
+                                  _pageController.previousPage(
+                                    duration: Duration(milliseconds: 300),
+                                    curve: Curves.ease,
+                                  );
+                                },
+                              ),
+                              Text(
+                                '2 / 2',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              IconButton(
+                                icon: Icon(Icons.arrow_forward_ios_sharp),
+                                onPressed: () {
+                                  Navigator.of(context).pop();
+                                },
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+                },
+              );
+            },
+          );
+        } else if (_dataType == 'CMD') {
+          return AlertDialog(
+            title: Text('Line to $sampleName'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: textEditingControllerLine,
+                  onChanged: (value) {},
+                  decoration: InputDecoration(
+                    hintText: 'Type Line here...',
+                    labelText: 'Line',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                SizedBox(height: 10),
+                ElevatedButton(
+                  onPressed: () {
+                    final line = textEditingControllerLine.text.trim();
+                    if (line.isNotEmpty) {
+                      _sendLine(line, _dataType); // Send based on _dataType
+                    }
+                    textEditingControllerLine.clear();
+                  },
+                  child: Text('Send'),
+                ),
+                SizedBox(height: 10),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    IconButton(
+                      icon: Icon(Icons.arrow_back_ios_sharp),
+                      onPressed: () {
+                        Navigator.of(context).pop();
+                      },
+                    ),
+                    Text(
+                      '2 / 2',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    IconButton(
+                      icon: Icon(Icons.arrow_forward_ios_sharp),
+                      onPressed: () {
+                        Navigator.of(context).pop();
+                      },
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          );
+        } else {
+          return Container(); // Return an empty container for other cases
+        }
+      },
+    );
+  }
+
+
+  Future<void> _sendLine(String line, String dataType) async {
+    final Map<String, dynamic> jsonData = {
+      'line': line,
+      'dataType': dataType,
+    };
+
+    final Uri uri = Uri.parse('https://your-api-endpoint-url.com'); // Replace with your API URL
+
+    try {
+      final response = await http.post(
+        uri,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(jsonData),
+      );
+
+      if (response.statusCode == 200) {
+        Fluttertoast.showToast(
+          msg: 'Line sent: $line',
+          toastLength: Toast.LENGTH_SHORT,
+          gravity: ToastGravity.BOTTOM,
+          timeInSecForIosWeb: 1,
+          backgroundColor: Colors.blue,
+          textColor: Colors.white,
+        );
+      } else {
+        Fluttertoast.showToast(
+          msg: 'Failed to send Line',
+          toastLength: Toast.LENGTH_SHORT,
+          gravity: ToastGravity.BOTTOM,
+          timeInSecForIosWeb: 1,
+          backgroundColor: Colors.red,
+          textColor: Colors.white,
+        );
+      }
+    } catch (e) {
+      Fluttertoast.showToast(
+        msg: 'Error sending data',
+        toastLength: Toast.LENGTH_SHORT,
+        gravity: ToastGravity.BOTTOM,
+        timeInSecForIosWeb: 1,
+        backgroundColor: Colors.red,
+        textColor: Colors.white,
+      );
+    }
+  }
+}
+
+class LocationsWidget extends StatelessWidget {
+  final bool visible;
+  final String dataType;
+  final Function(String) onSampleSelected;
+  final PageController pageController;
+
+  LocationsWidget({
+    required this.visible,
+    required this.dataType,
+    required this.onSampleSelected,
+    required this.pageController,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (!visible) {
+      return SizedBox.shrink();
+    }
+
+    final List<SampleData> sampleDataList = [
+      SampleData(icon: Icons.star, name: 'SCRC LAB 1'),
+      SampleData(icon: Icons.favorite, name: 'HARDWARE LAB'),
+      SampleData(icon: Icons.music_note, name: 'SOFTWARE LAB'),
+      SampleData(icon: Icons.shopping_cart, name: 'ALL LABS'),
+    ];
+
+    final double sampleWidth = 180.0;
+    final double sampleHeight = 200.0;
+
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: sampleDataList.take(2).map((sampleData) {
+            return Container(
+              width: sampleWidth,
+              height: sampleHeight,
+              child: SampleWidget(
+                icon: sampleData.icon,
+                name: sampleData.name,
+                onSampleSelected: onSampleSelected,
+                pageController: pageController,
+              ),
+            );
+          }).toList(),
+        ),
+        SizedBox(height: 20),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: sampleDataList.skip(2).map((sampleData) {
+            return Container(
+              width: sampleWidth,
+              height: sampleHeight,
+              child: SampleWidget(
+                icon: sampleData.icon,
+                name: sampleData.name,
+                onSampleSelected: onSampleSelected,
+                pageController: pageController,
+              ),
+            );
+          }).toList(),
+        ),
+      ],
+    );
+  }
+}
+
+class SampleData {
+  final IconData icon;
+  final String name;
+
+  SampleData({required this.icon, required this.name});
+}
+
+class SampleWidget extends StatelessWidget {
+  final IconData icon;
+  final String name;
+  final Function(String) onSampleSelected;
+  final PageController pageController;
+
+  SampleWidget({
+    required this.icon,
+    required this.name,
+    required this.onSampleSelected,
+    required this.pageController,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: () {
+        onSampleSelected(name);
+      },
+      child: Container(
+        padding: EdgeInsets.all(20),
+        margin: EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(15),
+          color: Colors.blueGrey[800],
+        ),
+        child: Column(
+          children: [
+            Icon(
+              icon,
+              size: 64,
+              color: Colors.blue,
+            ),
+            SizedBox(height: 8),
+            Text(
+              name,
+              style: TextStyle(fontSize: 16, color: Colors.white),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

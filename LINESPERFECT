@@ -1,388 +1,114 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:http/http.dart' as http;
 import 'package:fluttertoast/fluttertoast.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'loading_page.dart';
+import 'aboutus.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 void main() {
-  runApp(MyApp());
+  runApp(
+    MaterialApp(
+      debugShowCheckedModeBanner: false,
+      theme: ThemeData.dark().copyWith(
+        scaffoldBackgroundColor: Colors.black,
+        dialogBackgroundColor: Colors.blueGrey[800],
+        textTheme: TextTheme(
+          subtitle1: TextStyle(color: Colors.white),
+        ),
+        inputDecorationTheme: InputDecorationTheme(
+          fillColor: Colors.blueGrey[800],
+          labelStyle: TextStyle(color: Colors.white),
+          hintStyle: TextStyle(color: Colors.grey),
+        ),
+      ),
+      initialRoute: '/',
+      routes: {
+        '/': (context) => LoadingPage(),
+        '/home': (context) => MyMessengerApp(),
+        '/paragraphs': (context) => ParagraphsScreen(),
+      },
+    ),
+  );
 }
-
 class MyApp extends StatelessWidget {
-  final Future<void> _initialization;
-
-  MyApp() : _initialization = _initializeApp();
-
-  static Future<void> _initializeApp() async {
-    await Future.delayed(Duration(seconds: 2));
-  }
-
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      title: 'SCRC Announcements',
-      home: FutureBuilder(
-        future: _initialization,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.done) {
-            return MyHomePage();
-          } else {
-            return Scaffold(
-              body: Center(
-                child: Image.asset('assets/loading_image.png'),
-              ),
-            );
-          }
-        },
-      ),
+      theme: ThemeData.dark(),
+      home: MyMessengerApp(),
     );
   }
 }
+// class MyApp extends StatelessWidget {
+//   @override
+//   Widget build(BuildContext context) {
+//     return MaterialApp(
+//       theme: ThemeData.dark().copyWith(
+//           scaffoldBackgroundColor: Colors.black,
+//         // Customize the dark theme as needed
+//         // For example, you can change the accent color, etc.
+//       ),
+//       initialRoute: '/', // Use initialRoute to define the initial route
+//       routes: {
+//         '/': (context) => MyMessengerApp(),
+//         // Add other routes as needed
+//       },
+//     );
+//   }
+// }
 
-class MyHomePage extends StatefulWidget {
-  SharedPreferences? _prefs;
 
+class MyMessengerApp extends StatefulWidget {
   @override
-  _MyHomePageState createState() => _MyHomePageState();
+  _MyMessengerAppState createState() => _MyMessengerAppState();
 }
 
-class _MyHomePageState extends State<MyHomePage> {
-  SharedPreferences? _prefs;
-  String _currentButtonType = 'TXT'; // Initialize with 'TXT'
-  ScrollController _scrollController = ScrollController(); // Declare _scrollController
+class _MyMessengerAppState extends State<MyMessengerApp> {
+  PageController _pageController = PageController();
+  int _currentPageIndex = 0;
+  bool _showAnnounceSamples = false;
+  bool _showDataSamples = false;
+  Color _announceButtonColor = Colors.cyan;
+  Color _dataButtonColor = Colors.cyan;
+  final TextEditingController textEditingController = TextEditingController();
+  String _dataType = 'TXT';
+  final TextEditingController textEditingControllerLine1 = TextEditingController();
+  final TextEditingController textEditingControllerLine2 = TextEditingController();
+  final TextEditingController textEditingControllerLine3 = TextEditingController();
+  final TextEditingController textEditingControllerLine4 = TextEditingController();
+  bool _inFirstDialogBox = false; // Added variable
 
-  TextEditingController _textEditingController = TextEditingController();
-  TextEditingController _textEditingControllerLine1 = TextEditingController();
-  TextEditingController _textEditingControllerLine2 = TextEditingController();
-  TextEditingController _textEditingControllerLine3 = TextEditingController();
-
-  List<String> _suggestions = [
-    'Attention, We have visitors for our lab',
-    'Kindly Join the meeting soon',
-    'I need everyone in my room right now',
-    'Report to LAB1 within the next 5 minutes',
-    'Meet in LAB1 within the next 5 minutes'
+  final Map<String, String> sampleToUriMapping = {
+    'SCRC LAB 1': 'http://jsonplaceholder.typicode.com/posts',//jsonplaceholder.typicode.com/posts10.2.138.230:8100
+    'HARDWARE LAB': 'http://jsonplaceholder.typicode.com/posts',//jsonplaceholder.typicode.com/postshttp://10.2.201.164:6001
+    'DISPLAY BOARD': 'http://10.2.201.147:8100/update',
+    'SOFTWARE LAB ': '',
+  };
+  final List<Map<String, String>> hyperlinks = [
+    {'name': 'SCRC Home Page', 'url': 'https://smartcitylivinglab.iiit.ac.in/#!'},
+    {'name': 'Dashboard', 'url': 'https://smartcitylivinglab.iiit.ac.in/living_lab/dashboard/'},
   ];
 
-  List<String> _recentTexts = [];
-
-  void initState() {
-    super.initState();
-    _initializeSharedPreferences();
-    // Add listeners to the controllers to monitor text changes
-    _textEditingControllerLine1.addListener(() {
-      _checkAndShowLimitExceededToast(
-          _textEditingControllerLine1.text, 'Line 1');
-    });
-
-    _textEditingControllerLine2.addListener(() {
-      _checkAndShowLimitExceededToast(
-          _textEditingControllerLine2.text, 'Line 2');
-    });
-
-    _textEditingControllerLine3.addListener(() {
-      _checkAndShowLimitExceededToast(
-          _textEditingControllerLine3.text, 'Line 3');
-    });
-  }
-
-  void _scrollToTop() {
-    _scrollController.animateTo(
-      0,
-      duration: Duration(milliseconds: 500),
-      curve: Curves.easeInOut,
-    );
-  }
-
-  Future<void> _initializeSharedPreferences() async {
-    _prefs = await SharedPreferences.getInstance();
-    _loadRecentTexts();
-    _scrollController = ScrollController(); // Initialize _scrollController
-    _scrollController = ScrollController(); // Initialize _scrollController
-    _currentButtonType = 'TXT'; // Set initial type to 'TXT'
-  }
-
-  void _loadRecentTexts() {
-    setState(() {
-      _recentTexts = _prefs?.getStringList('recentTexts') ?? [];
-    });
-  }
-
-  Future<void> _sendTextAndData(String data, String type) async {
-    final Uri uri = Uri.parse('http://jsonplaceholder.typicode.com/posts'); // API endpoint
-
-    try {
-      final response = await http.post(
-        uri,
-        headers: {'Content-Type': 'application/json'},
-        body: '{"data": "$data", "type": "$type"}',
-      );
-
-      if (response.statusCode == 200) {
-        print('Data sent successfully');
-      } else {
-        print('Failed to send data. Status code: ${response.statusCode}');
-        print('Response body: ${response.body}');
-      }
-    } catch (e) {
-      print('Error sending data: $e');
-    }
-  }
-
-  void _sendText(String type) {
-    final enteredText = _textEditingController.text;
-    if (enteredText.isNotEmpty) {
-      // Remove duplicates if they exist
-      _recentTexts.remove(enteredText);
-
-      // Add the entered text at the beginning
-      _recentTexts.insert(0, enteredText);
-
-      // Limit the recent texts to a maximum of 5
-      if (_recentTexts.length > 5) {
-        _recentTexts.removeLast();
-      }
-
-      // Save the recent texts to Shared Preferences if _prefs is not null
-      if (_prefs != null) {
-        _prefs?.setStringList('recentTexts', _recentTexts);
-      }
-
-      _sendTextAndData(enteredText, _currentButtonType); // Sending the enteredText to the API
-    }
-    print("Entered text: $enteredText");
-    _textEditingController.clear();
-  }
-
-  void _selectSuggestion(String suggestion) {
-    setState(() {
-      _textEditingController.text = suggestion;
-    });
-  }
-
-  void _insertRecentText(String recentText) {
-    setState(() {
-      _textEditingController.text = recentText;
-    });
-  }
-
-  // void _sendTextAndLines(String type) {
-  //   final line1 = _textEditingControllerLine1.text;
-  //   final line2 = _textEditingControllerLine2.text;
-  //   final line3 = _textEditingControllerLine3.text;
-  //
-  //   // Handle the main input text box (enteredText) separately
-  //   if (line1.isNotEmpty) {
-  //     _sendTextAndData(line1, type);
-  //     _textEditingControllerLine1.clear();
-  //   }
-  //
-  //   if (line2.isNotEmpty) {
-  //     _sendTextAndData(line2, type);
-  //     _textEditingControllerLine2.clear();
-  //   }
-  //
-  //   if (line3.isNotEmpty) {
-  //     _sendTextAndData(line3, type);
-  //     _textEditingControllerLine3.clear();
-  //   }
-  //
-  //   _scrollToTop();
-  // }
-  // void _sendTextAndLines() {
-  //   final enteredText = _textEditingController.text;
-  //   final line1 = _textEditingControllerLine1.text;
-  //   final line2 = _textEditingControllerLine2.text;
-  //   final line3 = _textEditingControllerLine3.text;
-  //
-  //   if (line1.isNotEmpty) {
-  //     _sendTextAndData(line1, 'TXT'); // Send Line 1 as 'TXT'
-  //     _textEditingControllerLine1.clear();
-  //   }
-  //
-  //   if (line2.isNotEmpty) {
-  //     _sendTextAndData(line2, 'TXT'); // Send Line 2 as 'TXT'
-  //     _textEditingControllerLine2.clear();
-  //   }
-  //
-  //   if (line3.isNotEmpty) {
-  //     _sendTextAndData(line3, 'TXT'); // Send Line 3 as 'TXT'
-  //     _textEditingControllerLine3.clear();
-  //   }
-  //
-  //   if (enteredText.isNotEmpty) {
-  //     _recentTexts.remove(enteredText);
-  //     _recentTexts.insert(0, enteredText);
-  //
-  //     if (_recentTexts.length > 5) {
-  //       _recentTexts.removeLast();
-  //     }
-  //
-  //     if (_prefs != null) {
-  //       _prefs?.setStringList('recentTexts', _recentTexts);
-  //     }
-  //
-  //     _sendTextAndData(enteredText, 'TXT'); // Send entered text as 'TXT'
-  //     _textEditingController.clear();
-  //   }
-  // }
-  // void _sendTextAndLines() {
-  //   final enteredText = _textEditingController.text;
-  //   final line1 = _textEditingControllerLine1.text;
-  //   final line2 = _textEditingControllerLine2.text;
-  //   final line3 = _textEditingControllerLine3.text;
-  //
-  //   if (line1.isNotEmpty) {
-  //     _sendTextAndData(line1, 'TXT'); // Send Line 1 as 'TXT'
-  //     _textEditingControllerLine1.clear();
-  //   }
-  //
-  //   if (line2.isNotEmpty) {
-  //     _sendTextAndData(line2, 'TXT'); // Send Line 2 as 'TXT'
-  //     _textEditingControllerLine2.clear();
-  //   }
-  //
-  //   if (line3.isNotEmpty) {
-  //     _sendTextAndData(line3, 'TXT'); // Send Line 3 as 'TXT'
-  //     _textEditingControllerLine3.clear();
-  //   }
-  //
-  //   if (enteredText.isNotEmpty) {
-  //     _recentTexts.remove(enteredText);
-  //     _recentTexts.insert(0, enteredText);
-  //
-  //     if (_recentTexts.length > 5) {
-  //       _recentTexts.removeLast();
-  //     }
-  //
-  //     if (_prefs != null) {
-  //       _prefs?.setStringList('recentTexts', _recentTexts);
-  //     }
-  //
-  //     // Send entered text as 'TXT' or 'CMD' based on the selected button
-  //     _sendTextAndData(enteredText, _currentButtonType);
-  //     _textEditingController.clear();
-  //   }
-  // }
-  void _sendTextAndLines() {
-    final enteredText = _textEditingController.text;
-    final line1 = _textEditingControllerLine1.text;
-    final line2 = _textEditingControllerLine2.text;
-    final line3 = _textEditingControllerLine3.text;
-
-    if (_currentButtonType == 'CMD') {
-      // If the current button type is 'CMD', send enteredText as 'CMD'
-      if (enteredText.isNotEmpty) {
-        _recentTexts.remove(enteredText);
-        _recentTexts.insert(0, enteredText);
-
-        if (_recentTexts.length > 5) {
-          _recentTexts.removeLast();
-        }
-
-        if (_prefs != null) {
-          _prefs?.setStringList('recentTexts', _recentTexts);
-        }
-
-        _sendTextAndData(enteredText, 'CMD'); // Send entered text as 'CMD'
-        _textEditingController.clear();
-      }
-    } else {
-      // If the current button type is 'TXT', send enteredText as 'TXT'
-      if (enteredText.isNotEmpty) {
-        _recentTexts.remove(enteredText);
-        _recentTexts.insert(0, enteredText);
-
-        if (_recentTexts.length > 5) {
-          _recentTexts.removeLast();
-        }
-
-        if (_prefs != null) {
-          _prefs?.setStringList('recentTexts', _recentTexts);
-        }
-
-        _sendTextAndData(enteredText, 'TXT'); // Send entered text as 'TXT'
-        _textEditingController.clear();
-      }
-    }
-
-    // Always send Line 1, Line 2, and Line 3 as 'TXT' if they are not empty
-    if (line1.isNotEmpty) {
-      _sendTextAndData(line1, 'TXT'); // Send Line 1 as 'TXT'
-      _textEditingControllerLine1.clear();
-    }
-
-    if (line2.isNotEmpty) {
-      _sendTextAndData(line2, 'TXT'); // Send Line 2 as 'TXT'
-      _textEditingControllerLine2.clear();
-    }
-
-    if (line3.isNotEmpty) {
-      _sendTextAndData(line3, 'TXT'); // Send Line 3 as 'TXT'
-      _textEditingControllerLine3.clear();
-    }
-
-    _scrollToTop();
-  }
-
-
-
-  void _checkAndShowLimitExceededToast(String text, String field) {
-    if (text.length > 10) {
-      Fluttertoast.showToast(
-        msg: 'LIMIT EXCEEDED: $field',
-        toastLength: Toast.LENGTH_SHORT,
-        gravity: ToastGravity.BOTTOM,
-        backgroundColor: Colors.red,
-        textColor: Colors.white,
-        fontSize: 16.0,
-      );
-    }
-  }
-
-  void _setAnnounceSuggestions() {
-    setState(() {
-      _suggestions = [
-        'Attention, We have visitors for our lab',
-        'Kindly Join the meeting soon',
-        'I need everyone in my room right now',
-        'Report to LAB1 within the next 5 minutes',
-        'Meet in LAB1 within the next 5 minutes'
-      ];
-      _currentButtonType = 'TXT'; // Set to 'TXT' for Announce
-    });
-    _scrollToTop();
-  }
-
-  void _setCommandSuggestions() {
-    setState(() {
-      _suggestions = ['aq', 'srEM', 'wd', 'wf', 'wn'];
-      _currentButtonType = 'CMD'; // Set to 'CMD' for Command
-    });
-    _scrollToTop();
-  }
-
-  void _showRecentMessagesDialog() {
+  void _showHyperlinksDialog() {
     showDialog(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: Text('Recent Messages'),
-          content: Container(
-            width: 300,
-            height: 300,
-            child: ListView.builder(
-              itemCount: _recentTexts.length,
-              itemBuilder: (context, index) {
-                final recentText = _recentTexts[index];
-                return ListTile(
-                  title: Text(recentText),
-                  onTap: () {
-                    Navigator.of(context).pop();
-                    _insertRecentText(recentText);
-                  },
-                );
-              },
+          title: Text('Website Links'),
+          content: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                for (final link in hyperlinks)
+                  ListTile(
+                    title: Text(link['name'] ?? ''),
+                    onTap: () {
+                      _launchURL(link['url'] ?? '');
+                      Navigator.pop(context);
+                    },
+                  ),
+              ],
             ),
           ),
         );
@@ -391,187 +117,198 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  _launchURL(String url) async {
+    if (await canLaunch(url)) {
+      await launch(url);
+    } else {
+      Fluttertoast.showToast(
+        msg: 'Could not launch $url',
+        toastLength: Toast.LENGTH_SHORT,
+        gravity: ToastGravity.BOTTOM,
+        timeInSecForIosWeb: 1,
+        backgroundColor: Colors.red,
+        textColor: Colors.white,
+      );
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Theme.of(context).colorScheme.primary,
-        title: Text('SCRC Announcements'),
+        title: Row(
+          children: <Widget>[
+            Padding(
+              padding: EdgeInsets.only(right: 1),
+              child: Image(
+                image: AssetImage('assets/icon.png'),
+                width: 55,
+                height: 90,
+              ),
+            ),
+            SizedBox(width: 8),
+            Text(
+              'SCRC MESSENGER',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 1.2,
+              ),
+            ),
+          ],
+        ),
+        centerTitle: false,
+        backgroundColor: Colors.black,
+        elevation: 0,
       ),
-      body: SafeArea(
-        child: SingleChildScrollView(
+      drawer: Drawer(
+        child: ListView(
+          padding: EdgeInsets.zero,
+          children: <Widget>[
+            DrawerHeader(
+              decoration: BoxDecoration(
+                color: Colors.black12,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Image.asset(
+                    'assets/icon.png',
+                    width: 150,
+                    height: 100,
+                  ),
+                  SizedBox(height: 10),
+                  Text(
+                    'SMART CITY LIVING LAB',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            ListTile(
+              title: Text('About Us'),
+              onTap: () {
+                Navigator.pushNamed(context, '/paragraphs');
+              },
+            ),
+            ListTile(
+              title: Text('Website Links'),
+              onTap: () {
+                Navigator.pop(context);
+                _showHyperlinksDialog();
+              },
+            ),
+          ],
+        ),
+      ),
+      body: SingleChildScrollView( // the SingleChildScrollView to overcome the pixels overflow issue
+        child: Container(
+          color: Colors.black,
           child: Center(
             child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisAlignment: MainAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: <Widget>[
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    IconButton(
-                      onPressed: () {
-                        _icon1Action();
-                      },
-                      icon: Image.asset('assets/icon1.png'),
-                    ),
-                    IconButton(
-                      onPressed: () {
-                        _icon2Action();
-                      },
-                      icon: Image.asset('assets/icon2.png'),
-                    ),
-                    IconButton(
-                      onPressed: () {
-                        _icon3Action();
-                      },
-                      icon: Image.asset('assets/icon3.png'),
-                    ),
-                    IconButton(
-                      onPressed: () {
-                        _icon4Action();
-                      },
-                      icon: Image.asset('assets/icon4.png'),
-                    ),
-                  ],
-                ),
-                SizedBox(height: 16),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    ElevatedButton(
-                      onPressed: () => _setAnnounceSuggestions(),
-                      child: Text('Announce'),
-                    ),
-                    SizedBox(width: 16),
-                    ElevatedButton(
-                      onPressed: () => _setCommandSuggestions(),
-                      child: Text('Command'),
-                    ),
-                  ],
-                ),
-                SizedBox(height: 16),
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: _textEditingController,
-                        onChanged: (value) {
-                          setState(() {
-                            // custom logic
-                          });
+                  children: <Widget>[
+                    SizedBox(width: 20),
+                    Container(
+                      width: 150,
+                      child: ElevatedButton(
+                        onPressed: () {
+                          _handleAnnounceButtonClick();
                         },
-                        decoration: InputDecoration(
-                          hintText: 'Type here...',
-                          labelText: 'Input Text',
-                          border: OutlineInputBorder(),
+                        style: ButtonStyle(
+                          backgroundColor: MaterialStateProperty.all<Color>(_announceButtonColor),
+                          padding: MaterialStateProperty.all<EdgeInsets>(
+                            EdgeInsets.all(16),
+                          ),
+                          shape: MaterialStateProperty.all<RoundedRectangleBorder>(
+                            RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12.0),
+                            ),
+                          ),
+                        ),
+                        child: Column(
+                          children: <Widget>[
+                            Text(
+                              'Announce',
+                              style: TextStyle(fontSize: 20),
+                            ),
+                            if (_showAnnounceSamples) ...[
+                              Text(
+                                'Select Location',
+                                style: TextStyle(fontSize: 14),
+                              ),
+                            ] else ...[
+                              Text(
+                                'Select Location',
+                                style: TextStyle(fontSize: 14),
+                              ),
+                            ],
+                          ],
                         ),
                       ),
                     ),
-                    IconButton(
-                      onPressed: () => _sendTextAndLines(), // Call the updated function
-                      icon: Icon(Icons.send),
-                    ),
-                    // IconButton(
-                    //   onPressed: () => _sendText(_currentButtonType),
-                    //   icon: Icon(Icons.send),
-                    // ),
-                    IconButton(
-                      onPressed: () {
-                        _showRecentMessagesDialog();
-                      },
-                      icon: Icon(Icons.add), // Add a "+" icon here
-                    ),
-                  ],
-                ),
-                SizedBox(height: 10), // Add some spacing
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: _textEditingControllerLine1,
-                        onChanged: (value) {
-                          setState(() {
-                            // custom logic
-                          });
+                    SizedBox(width: 30),
+                    Container(
+                      width: 150,
+                      child: ElevatedButton(
+                        onPressed: () {
+                          _handleDataButtonClick();
                         },
-                        decoration: InputDecoration(
-                          hintText: 'Line 1...',
-                          labelText: 'Line 1',
-                          border: OutlineInputBorder(),
+                        style: ButtonStyle(
+                          backgroundColor: MaterialStateProperty.all<Color>(_dataButtonColor),
+                          padding: MaterialStateProperty.all<EdgeInsets>(
+                            EdgeInsets.all(16),
+                          ),
+                          shape: MaterialStateProperty.all<RoundedRectangleBorder>(
+                            RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12.0),
+                            ),
+                          ),
                         ),
-                      ),
-                    ),
-                  ],
-                ),
-                SizedBox(height: 10), // Add some spacing
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: _textEditingControllerLine2,
-                        onChanged: (value) {
-                          setState(() {
-                            // custom logic
-                          });
-                        },
-                        decoration: InputDecoration(
-                          hintText: 'Line 2...',
-                          labelText: 'Line 2',
-                          border: OutlineInputBorder(),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                SizedBox(height: 10), // Add some spacing
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: _textEditingControllerLine3,
-                        onChanged: (value) {
-                          setState(() {
-                            // custom logic
-                          });
-                        },
-                        decoration: InputDecoration(
-                          hintText: 'Line 3...',
-                          labelText: 'Line 3',
-                          border: OutlineInputBorder(),
+                        child: Column(
+                          children: <Widget>[
+                            Text(
+                              'Data',
+                              style: TextStyle(fontSize: 20),
+                            ),
+                            if (_showDataSamples) ...[
+                              Text(
+                                'Select Location',
+                                style: TextStyle(fontSize: 14),
+                              ),
+                            ] else ...[
+                              Text(
+                                'Select Location',
+                                style: TextStyle(fontSize: 14),
+                              ),
+                            ],
+                          ],
                         ),
                       ),
                     ),
                   ],
                 ),
                 SizedBox(height: 20),
-                Container(
-                  height: 150,
-                  child: ListView.builder(
-                    controller: _scrollController, // Attach the _scrollController here
-                    itemCount: _suggestions.length,
-                    itemBuilder: (context, index) {
-                      final suggestion = _suggestions[index];
-                      return GestureDetector(
-                        onTap: () {
-                          _selectSuggestion(suggestion);
-                        },
-                        child: Container(
-                          margin: EdgeInsets.symmetric(vertical: 8),
-                          padding: EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: Colors.lightBlueAccent),
-                          ),
-                          child: Text(
-                            suggestion,
-                            style: TextStyle(
-                              color: Colors.lightBlueAccent,
-                              decoration: TextDecoration.underline,
-                            ),
-                          ),
-                        ),
-                      );
+                if (_showAnnounceSamples || _showDataSamples)
+                  LocationsWidget(
+                    visible: _showAnnounceSamples || _showDataSamples,
+                    dataType: _dataType,
+                    onSampleSelected: (sampleName) {
+                      _handleSampleSelection(sampleName);
                     },
+                    pageController: _pageController,
                   ),
-                ),
               ],
             ),
           ),
@@ -580,51 +317,591 @@ class _MyHomePageState extends State<MyHomePage> {
     );
   }
 
-  void _icon1Action() {
-    Fluttertoast.showToast(
-      msg: 'SCRC LAB 1',
-      toastLength: Toast.LENGTH_SHORT,
-      gravity: ToastGravity.BOTTOM,
-      backgroundColor: Colors.black,
-      textColor: Colors.white,
-      fontSize: 16.0,
-    );
-    print('Icon 1 clicked');
+
+
+
+  void _handleAnnounceButtonClick() {
+    setState(() {
+      _dataType = 'TXT';
+      _showDataSamples = false;
+      _showAnnounceSamples = !_showAnnounceSamples;
+      _announceButtonColor = _showAnnounceSamples ? Colors.blue : Colors.cyan;
+      _dataButtonColor = Colors.cyan;
+    });
   }
 
-  void _icon2Action() {
-    Fluttertoast.showToast(
-      msg: 'Hardware Lab',
-      toastLength: Toast.LENGTH_SHORT,
-      gravity: ToastGravity.BOTTOM,
-      backgroundColor: Colors.black,
-      textColor: Colors.white,
-      fontSize: 16.0,
-    );
-    print('Icon 2 clicked');
+  void _handleDataButtonClick() {
+    setState(() {
+      _dataType = 'CMD';
+      _showDataSamples = !_showDataSamples;
+      _dataButtonColor = _showDataSamples ? Colors.blue : Colors.cyan;
+    });
   }
 
-  void _icon3Action() {
-    Fluttertoast.showToast(
-      msg: 'Software Lab ',
-      toastLength: Toast.LENGTH_SHORT,
-      gravity: ToastGravity.BOTTOM,
-      backgroundColor: Colors.black,
-      textColor: Colors.white,
-      fontSize: 16.0,
-    );
-    print('Icon 3 clicked');
+  List<String> suggestionTexts = [
+    'aq', 'srEM', 'wd', 'wf', 'wn'
+    // Add more suggestion options as needed
+  ];
+
+  void _handleSampleSelection(String sampleName) {
+    // Get the URI based on the selected sampleName
+    final String? uri = sampleToUriMapping[sampleName];
+
+    // Flag to determine whether to show the second dialog (only for HARDWARE LAB)
+    bool showSecondDialog = false;
+
+    // Flag to check if sampleName is 'HARDWARE LAB'
+    bool isHardwareLab = (sampleName == 'HARDWARE LAB');
+
+    if (isHardwareLab) {
+      showSecondDialog = true;
+      _inFirstDialogBox = false;
+    }
+
+    if (uri != null) {
+      showDialog(
+        context: context,
+        builder: (BuildContext context) {
+          // Check the data type and display the appropriate dialog
+          if (_dataType == 'TXT' && !isHardwareLab) {
+            // Display the TXT dialog for samples other than 'HARDWARE LAB'
+            return StatefulBuilder(
+              builder: (context, setState) {
+                return PageView.builder(
+                  controller: _pageController,
+                  itemCount: 2,
+                  onPageChanged: (index) {
+                    setState(() {
+                      _currentPageIndex = index;
+                    });
+                  },
+                  itemBuilder: (context, index) {
+                    if (index == 0 && sampleName != 'HARDWARE LAB') {
+                      return AlertDialog(
+                        title: Text('Lines to $sampleName'),
+                        content: SingleChildScrollView(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              TextField(
+                                controller: textEditingControllerLine1,
+                                onChanged: (value) {},
+                                decoration: InputDecoration(
+                                  hintText: 'Type Line 1 here...',
+                                  labelText: 'Line 1',
+                                  border: OutlineInputBorder(),
+                                ),
+                              ),
+                              SizedBox(height: 10),
+                              TextField(
+                                controller: textEditingControllerLine2,
+                                onChanged: (value) {},
+                                decoration: InputDecoration(
+                                  hintText: 'Type Line 2 here...',
+                                  labelText: 'Line 2',
+                                  border: OutlineInputBorder(),
+                                ),
+                              ),
+                              SizedBox(height: 10),
+                              TextField(
+                                controller: textEditingControllerLine3,
+                                onChanged: (value) {},
+                                decoration: InputDecoration(
+                                  hintText: 'Type Line 3 here...',
+                                  labelText: 'Line 3',
+                                  border: OutlineInputBorder(),
+                                ),
+                              ),
+                              SizedBox(height: 10),
+                              TextField(
+                                controller: textEditingControllerLine4,
+                                onChanged: (value) {},
+                                decoration: InputDecoration(
+                                  hintText: 'Type Line 4 here...',
+                                  labelText: 'Line 4',
+                                  border: OutlineInputBorder(),
+                                ),
+                              ),
+                              SizedBox(height: 10),
+                              ElevatedButton(
+                                onPressed: () {
+                                  final line1 = textEditingControllerLine1.text;
+                                  final line2 = textEditingControllerLine2.text;
+                                  final line3 = textEditingControllerLine3.text;
+                                  final line4 = textEditingControllerLine4.text;
+
+                                  if (_inFirstDialogBox) {
+                                    final jsonData = <String, dynamic>{};
+
+                                    if (line1.isNotEmpty) {
+                                      jsonData['one'] = line1;
+                                    }
+
+                                    if (line2.isNotEmpty) {
+                                      jsonData['two'] = line2;
+                                    }
+
+                                    if (line3.isNotEmpty) {
+                                      jsonData['three'] = line3;
+                                    }
+
+                                    if (line4.isNotEmpty) {
+                                      jsonData['four'] = line4;
+                                    }
+
+                                    _sendData(jsonData, 'TXT', Uri.parse(uri));
+                                  } else {
+                                    if (line1.isNotEmpty) {
+                                      _sendLine(line1, 'TXT', Uri.parse(uri));
+                                    }
+                                  }
+
+                                  textEditingControllerLine1.clear();
+                                  textEditingControllerLine2.clear();
+                                  textEditingControllerLine3.clear();
+                                  textEditingControllerLine4.clear();
+                                },
+                                child: Text('Send'),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    } else {
+                      return AlertDialog(
+                        title: Text('Announcement to  $sampleName'),
+                        content: SingleChildScrollView(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              TextField(
+                                controller: textEditingControllerLine1,
+                                onChanged: (value) {},
+                                decoration: InputDecoration(
+                                  hintText: 'Type Line here...',
+                                  labelText: 'Line',
+                                  border: OutlineInputBorder(),
+                                ),
+                              ),
+                              SizedBox(height: 10),
+                              ElevatedButton(
+                                onPressed: () {
+                                  final line1 = textEditingControllerLine1.text;
+
+                                  if (_inFirstDialogBox) {
+                                    final jsonData = <String, dynamic>{};
+
+                                    if (line1.isNotEmpty) {
+                                      jsonData['data'] = line1;
+                                    }
+
+                                    _sendData(jsonData, 'TXT', Uri.parse(uri));
+                                  } else {
+                                    if (line1.isNotEmpty) {
+                                      _sendLine(line1, 'TXT', Uri.parse(uri));
+                                    }
+                                  }
+
+                                  textEditingControllerLine1.clear();
+                                },
+                                child: Text('Send'),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    }
+                  },
+                );
+              },
+            );
+          } else if (_dataType == 'CMD' && !isHardwareLab) {
+            // Display the CMD dialog for samples other than 'HARDWARE LAB'
+            return AlertDialog(
+              title: Text('Command to $sampleName'),// this whole part is for 3 data samples only
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      controller: textEditingControllerLine1,
+                      onChanged: (value) {},
+                      decoration: InputDecoration(
+                        hintText: 'Type Command here...',
+                        labelText: 'Enter Command ',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    DropdownButton<String>(
+                      items: suggestionTexts.map((String suggestion) {
+                        return DropdownMenuItem<String>(
+                          value: suggestion,
+                          child: Text(suggestion),
+                        );
+                      }).toList(),
+                      onChanged: (String? selectedSuggestion) {
+                        textEditingControllerLine1.text = selectedSuggestion ?? '';
+                      },
+                      hint: Text('Select Command'),
+                    ),
+                    SizedBox(height: 10),
+                    ElevatedButton(
+                      onPressed: () {
+                        final line1 = textEditingControllerLine1.text;
+
+                        if (_inFirstDialogBox) {
+                          final jsonData = <String, dynamic>{};
+
+                          if (line1.isNotEmpty) {
+                            jsonData['data'] = line1;
+                          }
+
+                          _sendData(jsonData, 'TXT', Uri.parse(uri));
+                        } else {
+                          if (line1.isNotEmpty) {
+                            _sendLine(line1, 'CMD', Uri.parse(uri));
+                          }
+                        }
+
+                        textEditingControllerLine1.clear();
+                      },
+                      child: Text('Send'),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          } else if (_dataType == 'TXT' && isHardwareLab) {
+            // Display a simplified TXT dialog for 'HARDWARE LAB'
+            return AlertDialog(
+              title: Text('Announcement to $sampleName'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      controller: textEditingControllerLine1,
+                      onChanged: (value) {},
+                      decoration: InputDecoration(
+                        hintText: 'Type Line here...',
+                        labelText: 'Line',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    SizedBox(height: 10),
+                    ElevatedButton(
+                      onPressed: () {
+                        final line1 = textEditingControllerLine1.text;
+
+                        if (_inFirstDialogBox) {
+                          final jsonData = <String, dynamic>{};
+
+                          if (line1.isNotEmpty) {
+                            jsonData['data'] = line1;
+                          }
+
+                          _sendData(jsonData, 'TXT', Uri.parse(uri));
+                        } else {
+                          if (line1.isNotEmpty) {
+                            _sendLine(line1, 'TXT', Uri.parse(uri));
+                          }
+                        }
+
+                        textEditingControllerLine1.clear();
+                      },
+                      child: Text('Send'),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          } else if (_dataType == 'CMD' && isHardwareLab) {
+            // Display a simplified CMD dialog for 'HARDWARE LAB'
+            return AlertDialog(
+              title: Text('Announcement to $sampleName'),// this whole part is for only hardware lab data sample
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      controller: textEditingControllerLine1,
+                      onChanged: (value) {},
+                      decoration: InputDecoration(
+                        hintText: 'Type Command here...',
+                        labelText: 'Enter Command ',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    SizedBox(height: 10),
+                    DropdownButton<String>(
+                      items: suggestionTexts.map((String suggestion) {
+                        return DropdownMenuItem<String>(
+                          value: suggestion,
+                          child: Text(suggestion),
+                        );
+                      }).toList(),
+                      onChanged: (String? selectedSuggestion) {
+                        textEditingControllerLine1.text = selectedSuggestion ?? '';
+                      },
+                      hint: Text('Select Command'),
+                    ),
+
+                    ElevatedButton(
+                      onPressed: () {
+                        final line1 = textEditingControllerLine1.text;
+
+                        if (_inFirstDialogBox) {
+                          final jsonData = <String, dynamic>{};
+
+                          if (line1.isNotEmpty) {
+                            jsonData['data'] = line1;
+                          }
+
+                          _sendData(jsonData, 'TXT', Uri.parse(uri));
+                        } else {
+                          if (line1.isNotEmpty) {
+                            _sendLine(line1, 'CMD', Uri.parse(uri));
+                          }
+                        }
+
+                        textEditingControllerLine1.clear();
+                      },
+                      child: Text('Send'),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          } else {
+            // Handle cases where _dataType is neither 'TXT' nor 'CMD'
+            return Container();
+          }
+        },
+      );
+    } else {
+      Fluttertoast.showToast(
+        msg: 'Invalid Sample Selection',
+        toastLength: Toast.LENGTH_SHORT,
+        gravity: ToastGravity.BOTTOM,
+        timeInSecForIosWeb: 1,
+        backgroundColor: Colors.red,
+        textColor: Colors.white,
+      );
+    }
   }
 
-  void _icon4Action() {
-    Fluttertoast.showToast(
-      msg: 'All Labs ',
-      toastLength: Toast.LENGTH_SHORT,
-      gravity: ToastGravity.BOTTOM,
-      backgroundColor: Colors.black,
-      textColor: Colors.white,
-      fontSize: 16.0,
+  Future<void> _sendData(Map<String, dynamic> jsonData, String dataType, Uri uri) async {
+    jsonData['type'] = dataType;
+
+    try {
+      final response = await http.post(
+        uri,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(jsonData),
+      );
+
+      if (response.statusCode == 200) {
+        Fluttertoast.showToast(
+          msg: 'Data sent: ${jsonEncode(jsonData)}',
+          toastLength: Toast.LENGTH_SHORT,
+          gravity: ToastGravity.BOTTOM,
+          timeInSecForIosWeb: 1,
+          backgroundColor: Colors.blue,
+          textColor: Colors.white,
+        );
+
+        print('Response Body: ${response.body}');
+      } else {
+        Fluttertoast.showToast(
+          msg: 'Failed to send Data',
+          toastLength: Toast.LENGTH_SHORT,
+          gravity: ToastGravity.BOTTOM,
+          timeInSecForIosWeb: 1,
+          backgroundColor: Colors.red,
+          textColor: Colors.white,
+        );
+        print('Response Body: ${response.body}');
+      }
+    } catch (e) {
+      Fluttertoast.showToast(
+        msg: 'Error sending data',
+        toastLength: Toast.LENGTH_SHORT,
+        gravity: ToastGravity.BOTTOM,
+        timeInSecForIosWeb: 1,
+        backgroundColor: Colors.red,
+        textColor: Colors.white,
+      );
+    }
+  }
+
+  Future<void> _sendLine(String line, String dataType, Uri uri) async {
+    final Map<String, dynamic> jsonData = {
+      'data': line,
+      'type': dataType,
+    };
+
+    try {
+      final response = await http.post(
+        uri,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(jsonData),
+      );
+
+      if (response.statusCode == 200) {
+        Fluttertoast.showToast(
+          msg: 'Announcement sent: $line',
+          toastLength: Toast.LENGTH_SHORT,
+          gravity: ToastGravity.BOTTOM,
+          timeInSecForIosWeb: 1,
+          backgroundColor: Colors.blue,
+          textColor: Colors.white,
+        );
+
+       // print('Response Body: ${response.body}');
+      } else {
+        Fluttertoast.showToast(
+          msg: 'Failed to send Line',
+          toastLength: Toast.LENGTH_SHORT,
+          gravity: ToastGravity.BOTTOM,
+          timeInSecForIosWeb: 1,
+          backgroundColor: Colors.red,
+          textColor: Colors.white,
+        );
+        print('Response Body: ${response.body}');
+      }
+    } catch (e) {
+      Fluttertoast.showToast(
+        msg: 'Error sending data',
+        toastLength: Toast.LENGTH_SHORT,
+        gravity: ToastGravity.BOTTOM,
+        timeInSecForIosWeb: 1,
+        backgroundColor: Colors.red,
+        textColor: Colors.white,
+      );
+    }
+  }
+}
+
+class LocationsWidget extends StatelessWidget {
+  final bool visible;
+  final String dataType;
+  final Function(String) onSampleSelected;
+  final PageController pageController;
+
+  LocationsWidget({
+    required this.visible,
+    required this.dataType,
+    required this.onSampleSelected,
+    required this.pageController,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (!visible) {
+      return SizedBox.shrink();
+    }
+
+    final List<SampleData> sampleDataList = [
+      SampleData(icon: Icons.engineering, name: 'SCRC LAB 1'),
+      SampleData(icon: Icons.construction, name: 'HARDWARE LAB'),
+      SampleData(icon: Icons.display_settings, name: 'DISPLAY BOARD'),
+      SampleData(icon: Icons.laptop_mac, name: 'SOFTWARE LAB'),
+    ];
+
+    final double sampleWidth = 180.0;
+    final double sampleHeight = 200.0;
+
+    return SingleChildScrollView(  // Wrap with SingleChildScrollView
+      scrollDirection: Axis.horizontal,  // Scroll horizontally
+      physics: NeverScrollableScrollPhysics(),  // Disable scrolling
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: sampleDataList.take(2).map((sampleData) {
+              return Container(
+                width: sampleWidth,
+                height: sampleHeight,
+                child: SampleWidget(
+                  icon: sampleData.icon,
+                  name: sampleData.name,
+                  onSampleSelected: onSampleSelected,
+                  pageController: pageController,
+                ),
+              );
+            }).toList(),
+          ),
+          SizedBox(height: 20),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: sampleDataList.skip(2).map((sampleData) {
+              return Container(
+                width: sampleWidth,
+                height: sampleHeight,
+                child: SampleWidget(
+                  icon: sampleData.icon,
+                  name: sampleData.name,
+                  onSampleSelected: onSampleSelected,
+                  pageController: pageController,
+                ),
+              );
+            }).toList(),
+          ),
+        ],
+      ),
     );
-    print('Icon 4 clicked');
+  }
+}
+
+class SampleData {
+  final IconData icon;
+  final String name;
+
+  SampleData({required this.icon, required this.name});
+}
+
+class SampleWidget extends StatelessWidget {
+  final IconData icon;
+  final String name;
+  final Function(String) onSampleSelected;
+  final PageController pageController;
+
+  SampleWidget({
+    required this.icon,
+    required this.name,
+    required this.onSampleSelected,
+    required this.pageController,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: () {
+        onSampleSelected(name);
+      },
+      child: Container(
+        padding: EdgeInsets.all(20),
+        margin: EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(15),
+          color: Colors.blueGrey[800],
+        ),
+        child: Column(
+          children: [
+            Icon(
+              icon,
+              size: 64,
+              color: Colors.blue,
+            ),
+            SizedBox(height: 8),
+            Text(
+              name,
+              style: TextStyle(fontSize: 16, color: Colors.white),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
